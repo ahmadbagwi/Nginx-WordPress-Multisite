@@ -1,0 +1,49 @@
+# Force https
+map $http_x_forwarded_proto $https_flag {
+    default off;
+    https on;
+}
+
+server {
+    listen 80 default_server;
+    # listen 443 ssl http2 default_server;
+
+    # Redirect all HTTP to HTTPS
+    # return 301 https://$host$request_uri;
+
+    # For SSL 
+    # ssl_certificate /home/ahmad/ssl/dev-kbd.local.ssl;
+    # ssl_certificate_key /home/ahmad/ssl/dev-kbd..local.key;
+
+    server_name dev-kbd.local;
+    access_log /var/www/html/access.log;
+    error_log /var/www/html/error.log;
+
+    # root /home/ahmad/html;
+    root /var/www/html/dev-kbd;
+    index index.php index.html index.htm index.nginx-debian.html;
+    
+    include /etc/nginx/global/restrictions.conf;
+    if (!-e $request_filename) {
+        rewrite /wp-admin$ $scheme://$host$request_uri/ permanent;
+        rewrite ^(/[^/]+)?(/wp-.*) $2 last;
+        rewrite ^(/[^/]+)?(/.*\.php) $2 last;
+    }
+
+    location / {
+	    try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.1-fpm.sock;
+
+        # Pass correct SSL-related headers for WordPress multisite
+        fastcgi_param HTTPS $https_flag;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
